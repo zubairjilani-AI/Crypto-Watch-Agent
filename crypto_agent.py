@@ -88,7 +88,7 @@ def apply_guardrails(decision):
     except:
         return {"alert": False, "message": "Invalid JSON", "sources": []}
         
-        # Check for advice words
+    # Check for advice words
     msg = d.get("message", "").lower()
     if any(word in msg for word in BANNED_WORDS):
         d["alert"] = False
@@ -106,6 +106,19 @@ def apply_guardrails(decision):
     d["sources"] = valid_srcs
     return d
 
+# ---------- 5. Send to Google Sheet ----------
+def send_to_sheet(decision):
+    sheet_url = os.environ.get("SHEET_URL")
+    if not sheet_url:
+        print("No SHEET_URL found. Skipping sheet update.")
+        return
+    try:
+        res = requests.post(sheet_url, json=decision, timeout=10)
+        print(f"Sheet response: {res.status_code} - {res.text}")
+    except Exception as e:
+        print(f"Failed to send to sheet: {e}")
+
+# ---------- 6. The Agent Loop ----------
 def run_agent():
     messages = [
         {"role": "system", "content": "You are a crypto watcher. Check BTC, ETH, SOL. Read the playbook. Reply in JSON: {'alert': true/false, 'message': 'short text', 'sources': ['Volatility']}"},
@@ -118,6 +131,7 @@ def run_agent():
             print("RAW AI DECISION:", msg["content"])
             final = apply_guardrails(msg["content"])
             print("FINAL DECISION:", json.dumps(final, indent=2))
+            send_to_sheet(final)
             return
         messages.append(msg)
         for tool in msg["tool_calls"]:
