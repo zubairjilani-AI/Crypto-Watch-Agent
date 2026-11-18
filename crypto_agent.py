@@ -88,7 +88,7 @@ def apply_guardrails(decision):
     except:
         return {"alert": False, "message": "Invalid JSON", "sources": []}
         
-    # Check for advice words
+        # Check for advice words
     msg = d.get("message", "").lower()
     if any(word in msg for word in BANNED_WORDS):
         d["alert"] = False
@@ -100,6 +100,9 @@ def apply_guardrails(decision):
         d["alert"] = False
         d["message"] = "Blocked by guardrail: No valid playbook source."
         
+    # Fix the AI hyphen glitch
+    d["message"] = d.get("message", "").replace("\u2011", "-").replace("\u2013", "-")
+    
     d["sources"] = valid_srcs
     return d
 
