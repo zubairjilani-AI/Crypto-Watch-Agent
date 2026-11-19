@@ -3,6 +3,8 @@ import math
 import os
 import json
 import sys
+import gspread
+from google.oauth2.service_account import Credentials
 
 # ---------- 1. The Market Tool (From Assignment 1) ----------
 URL = "https://api.kraken.com/0/public/OHLC"
@@ -106,18 +108,33 @@ def apply_guardrails(decision):
     d["sources"] = valid_srcs
     return d
 
-# ---------- 5. Send to Google Sheet (With Safety Net) ----------
+# ---------- 5. Send to Google Sheet (Direct API) ----------
 def send_to_sheet(decision):
-    sheet_url = os.environ.get("SHEET_URL")
-    if not sheet_url:
-        print("No SHEET_URL found. Skipping sheet update.")
+    sheet_id = os.environ.get("SHEET_ID")
+    creds_json = os.environ.get("GOOGLE_CREDENTIALS")
+    
+    if not sheet_id or not creds_json:
+        print("No Sheet credentials found. Skipping sheet update.")
         return
+        
     try:
-        res = requests.post(sheet_url, json=decision, timeout=10)
-        print(f"Sheet response: {res.status_code} - {res.text}")
+        # Authenticate with Google using the JSON secret
+        scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+        creds_dict = json.loads(creds_json)
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        client = gspread.authorize(creds)
+        
+        # Open the "Agent" tab and append the row
+        sheet = client.open_by_key(sheet_id).worksheet("Agent")
+        sheet.append_row([
+            decision.get("alert"),
+            decision.get("message"),
+            ", ".join(decision.get("sources", []))
+        ])
+        print("Successfully wrote to Google Sheet!")
     except Exception as e:
-        # This safety net stops Google's error from breaking your code
-        print(f"Note: Could not reach Google Sheet ({e}). The decision is printed above.")
+        # Safety net
+        print(f"Failed to send to sheet: {e}")
 
 # ---------- 6. The Agent Loop ----------
 def run_agent():
