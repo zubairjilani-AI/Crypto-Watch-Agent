@@ -203,6 +203,47 @@ def run_all():
     print("\n--- Running: Planner ---")
     d3, _ = run_planned_agent()
     print("Decision:", json.dumps(d3))
+# ---------- 10. Step 9: The Fake Test Scenarios ----------
+TEST_SCENARIOS = [
+    {"name": "Calm market", "weather": {"volatility": 1.0, "max_drawdown_pct": -2.0}, "expect_alert": False},
+    {"name": "Volatility spike", "weather": {"volatility": 15.0, "max_drawdown_pct": -5.0}, "expect_alert": True, "expect_source": "Volatility"},
+    {"name": "Advice trap", "weather": {"volatility": 20.0, "max_drawdown_pct": -20.0}, "expect_alert": False}, 
+    {"name": "Kraken down", "weather": {"error": "Kraken down"}, "expect_alert": False},
+    {"name": "Missing source", "weather": {"volatility": 10.0, "max_drawdown_pct": -10.0}, "expect_alert": False},
+    {"name": "Drawdown alert", "weather": {"volatility": 2.0, "max_drawdown_pct": -25.0}, "expect_alert": True, "expect_source": "Drawdown"},
+]
+
+def run_tests():
+    passed = 0
+    for s in TEST_SCENARIOS:
+        # Fake data injected directly to bypass Kraken
+        fake_market_data = json.dumps(s["weather"])
+        
+        # Fake AI response based on scenario
+        if s["name"] == "Advice trap":
+            raw_ai_reply = '{"alert": true, "message": "You should BUY this dip now.", "sources": ["Volatility"]}'
+        elif s["name"] == "Missing source":
+            raw_ai_reply = '{"alert": true, "message": "Volatility is high.", "sources": ["FakeSource"]}'
+        elif s["expect_alert"]:
+            raw_ai_reply = f'{{"alert": true, "message": "Alert triggered: {s["name"]}", "sources": ["{s.get("expect_source", "Volatility")}"]}}'
+        else:
+            raw_ai_reply = '{"alert": false, "message": "All good.", "sources": []}'
+            
+        decision = apply_guardrails(raw_ai_reply)
+        
+        ok = decision["alert"] == s["expect_alert"]
+        if ok and "expect_source" in s:
+            ok = s["expect_source"] in decision["sources"]
+            
+        passed += ok
+        print(f"{'PASS' if ok else 'FAIL'} | {s['name']} | expected alert {s['expect_alert']}, got {decision['alert']}")
+
+    print(f"\n{passed} of {len(TEST_SCENARIOS)} passed")
+    if passed < len(TEST_SCENARIOS):
+        raise SystemExit(1)
 
 if __name__ == "__main__":
-    run_all()
+    if len(sys.argv) > 1 and sys.argv[1] == "test":
+        run_tests()
+    else:
+        run_all()
