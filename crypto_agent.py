@@ -239,7 +239,7 @@ def run_tests():
         print(f"{'PASS' if ok else 'FAIL'} | {s['name']} | expected alert {s['expect_alert']}, got {decision['alert']}")
 
     print(f"\n{passed} of {len(TEST_SCENARIOS)} passed")
-    if passed < :
+    if passed < len(TEST_SCENARIOS):
         raise SystemExit(1)
 
 if __name__ == "__main__":
